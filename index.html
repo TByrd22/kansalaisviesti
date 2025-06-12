@@ -54,7 +54,7 @@
 <body>
   <h1>Kansalaisviesti</h1>
   <p class="description">
-    Tämä on maksuton ja täysin anonyymi työkalu, jonka avulla voit helposti lähettää viestin viranomaiselle. Kirjoita huolesi omin sanoin, ja tekoäly muotoilee siitä viranomaiskielelle sopivan version. Viesti lähtee sähköpostina suoraan oikeaan osoitteeseen. Käyttäjän tietoja ei tallenneta.
+    Tämä on maksuton ja täysin anonyymi työkalu, jonka avulla voit helposti lähettää viestin viranomaiselle.
   </p>
   <form id="valitusForm">
     <label for="viranomainen">Viranomainen:</label>
@@ -80,10 +80,10 @@
       </select>
     </div>
 
-    <label for="kuvaus">Kuvaa ongelma vapaasti omin sanoin:</label>
-    <textarea id="kuvaus" placeholder="Esim. Miksi terveyskeskuksessa ei ole iltapäivystystä?"></textarea>
+    <label for="kuvaus">Kuvaa ongelma omin sanoin:</label>
+    <textarea id="kuvaus" required></textarea>
 
-    <label for="sposti">Sähköpostisi (vaaditaan vastaukseen)</label>
+    <label for="sposti">Sähköpostiosoitteesi:</label>
     <input type="email" id="sposti" required />
 
     <div class="button-row">
@@ -94,11 +94,13 @@
   <div id="loading" class="hidden">Muotoillaan viestiä...</div>
 
   <script>
+    const WORKER_URL = "https://throbbing-tree-411d.tbyrd-2112.workers.dev/";
+
     async function muotoileKuvaus(teksti) {
       const loader = document.getElementById("loading");
       loader.classList.remove("hidden");
       try {
-        const response = await fetch("https://throbbing-tree-411d.tbyrd-2112.workers.dev/", {
+        const response = await fetch(WORKER_URL, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -110,17 +112,10 @@
           })
         });
 
-        const text = await response.text();
-        const data = JSON.parse(text);
-
-        if (!data.choices || !data.choices[0] || !data.choices[0].message) {
-          throw new Error("Virheellinen vastaus AI:lta.");
-        }
-
+        const data = await response.json();
         return data.choices[0].message.content;
       } catch (error) {
-        console.error("AI-muotoiluvirhe:", error);
-        alert("Virhe AI-muotoilussa. Viesti lähetetään alkuperäisessä muodossaan.");
+        alert("Virhe AI-muotoilussa: " + error.message);
         return teksti;
       } finally {
         loader.classList.add("hidden");
@@ -168,4 +163,5 @@
   </script>
 </body>
 </html>
+
 
