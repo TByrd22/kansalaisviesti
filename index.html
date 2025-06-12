@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="fi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Kansalaisviesti</title>
+  <style>
+    body {
+      font-family: sans-serif;
+      background: #f4f4f4;
+      padding: 2em;
+      max-width: 650px;
+      margin: auto;
+    }
+    h1 {
+      text-align: center;
+      color: #003366;
+    }
+    label, select, textarea, input {
+      display: block;
+      width: 100%;
+      margin-bottom: 1em;
+    }
+    textarea {
+      height: 120px;
+    }
+    .hidden {
+      display: none;
+    }
+    button {
+      background: #0053a0;
+      color: white;
+      padding: 0.8em;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+    }
+    .button-row {
+      text-align: center;
+    }
+    p.description {
+      margin-bottom: 2em;
+      font-size: 0.95em;
+      color: #333;
+    }
+  </style>
+</head>
+<body>
+  <h1>Kansalaisviesti</h1>
+  <p class="description">
+    Tämä on maksuton ja täysin anonyymi työkalu, jonka avulla voit helposti lähettää viestin viranomaiselle. Kirjoita huolesi omin sanoin, ja tekoäly muotoilee siitä viranomaiskielelle sopivan version. Viesti lähtee sähköpostina suoraan oikeaan osoitteeseen. Käyttäjän tietoja ei tallenneta.
+  </p>
+  <form id="valitusForm">
+    <label for="viranomainen">Viranomainen:</label>
+    <select id="viranomainen" onchange="paivitaAluevalinta()">
+      <option value="">-- Valitse --</option>
+      <option value="kela">Kela</option>
+      <option value="vero">Verohallinto</option>
+      <option value="ulosotto">Ulosottolaitos</option>
+      <option value="te">TE-toimisto</option>
+      <option value="poliisi">Poliisi</option>
+      <option value="sote">Sosiaali- tai terveyspalvelut (alueellinen)</option>
+    </select>
+
+    <div id="alueValinta" class="hidden">
+      <label for="alue">Valitse hyvinvointialue:</label>
+      <select id="alue">
+        <option value="pk">Pohjois-Karjala</option>
+        <option value="ps">Pohjois-Savo</option>
+        <option value="pir">Pirkanmaa</option>
+        <option value="vs">Varsinais-Suomi</option>
+        <option value="lap">Lappi</option>
+        <option value="hel">Helsingin kaupunki</option>
+      </select>
+    </div>
+
+    <label for="kuvaus">Kuvaa ongelma vapaasti omin sanoin:</label>
+    <textarea id="kuvaus" placeholder="Esim. Miksi terveyskeskuksessa ei ole iltapäivystystä?"></textarea>
+
+    <label for="sposti">Sähköpostisi (vaaditaan vastaukseen)</label>
+    <input type="email" id="sposti" required />
+
+    <div class="button-row">
+      <button type="button" onclick="lahetaValitus()">📧 Laadi valitus</button>
+    </div>
+  </form>
+
+  <script>
+    async function muotoileKuvaus(teksti) {
+      const response = await fetch("https://throbbing-tree-411d.tbyrd-2112.workers.dev/", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          model: "gpt-4",
+          messages: [
+            { role: "system", content: "Muotoile alla oleva kansankielinen valitus viranomaiskielelle. Pidä kieli virallisena mutta selkeänä. Älä lisää uutta sisältöä." },
+            { role: "user", content: teksti }
+          ]
+        })
+      });
+      const data = await response.json();
+      return data.choices[0].message.content;
+    }
+
+    function paivitaAluevalinta() {
+      const vir = document.getElementById("viranomainen").value;
+      const alueDiv = document.getElementById("alueValinta");
+      alueDiv.classList.toggle("hidden", vir !== "sote");
+    }
+
+    async function lahetaValitus() {
+      const vir = document.getElementById("viranomainen").value;
+      const sposti = document.getElementById("sposti").value.trim();
+      const raakateksti = document.getElementById("kuvaus").value.trim();
+      const alue = document.getElementById("alue").value;
+
+      if (!raakateksti || !sposti || !vir || (vir === "sote" && !alue)) {
+        alert("Täytä kaikki kentät.");
+        return;
+      }
+
+      let vastaanottaja = "";
+      switch (vir) {
+        case "kela": vastaanottaja = "kirjaamo@kela.fi"; break;
+        case "vero": vastaanottaja = "kirjaamo@vero.fi"; break;
+        case "ulosotto": vastaanottaja = "kirjaamo@oikeus.fi"; break;
+        case "te": vastaanottaja = "kirjaamo@te-toimisto.fi"; break;
+        case "poliisi": vastaanottaja = "kirjaamo@poliisi.fi"; break;
+        case "sote": vastaanottaja = `kirjaamo@${alue}.hyvinvointialue.fi`; break;
+        default: vastaanottaja = "";
+      }
+
+      const muotoiltu = await muotoileKuvaus(raakateksti);
+
+      const otsikko = encodeURIComponent("Kansalaisviesti viranomaistoiminnasta");
+      const viesti = encodeURIComponent(
+        `Arvoisa vastaanottaja,
+
+${muotoiltu}
+
+Pyydän saada vastauksen tähän viestiin hallintolain mukaisessa määräajassa.
+Ystävällisin terveisin,
+${sposti}`
+      );
+
+      const mailtoLink = `mailto:${vastaanottaja}?subject=${otsikko}&body=${viesti}`;
+      window.location.href = mailtoLink;
+    }
+  </script>
+</body>
+</html>
